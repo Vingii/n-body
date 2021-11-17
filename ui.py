@@ -40,7 +40,8 @@ class UI:
         self.vis_canvas.get_tk_widget().pack(fill=BOTH, expand=True)
         # animation
         self.im = plt.imshow(self.data_func(self.zoom), cmap=plt.get_cmap('Greys'), vmin=0, vmax=1, animated=True)
-        plt.axis("off")
+        plt.gca().get_xaxis().set_ticks([])
+        plt.gca().get_yaxis().set_ticks([])
         self.ani = animation.FuncAnimation(self.vis_fig, self.ani_step, interval=fps_to_interval(30), blit=False)
         # controls
         self.control_frame = Frame(self.window)

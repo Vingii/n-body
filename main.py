@@ -18,9 +18,9 @@ def data_to_array(x_res, y_res, zoom):  # converts simulation data to a bitmap
         for i in np.arange(-r, r + 1):
             for j in np.arange(-r, r + 1):
                 if in_bounds(x_center + i, y_center + j) and i * i + j * j <= rsq:
-                    data[x_center + i, y_center + j] = 1
+                    data[y_center + j, x_center + i] = 1
 
-    data = np.zeros((x_res, y_res))
+    data = np.zeros((y_res, x_res))
     for body in simulation.get_bodies():
         render(body)
     return data
@@ -29,8 +29,10 @@ def data_to_array(x_res, y_res, zoom):  # converts simulation data to a bitmap
 if __name__ == '__main__':
     x_vis_res = 600
     y_vis_res = 400
-    simulation = simu.Simulation(0.01)
+    simulation = simu.Simulation(0.01, 0.5)
     display = ui.UI(data_to_array, simulation, 800, 600, x_vis_res, y_vis_res)
-    #simulation.create_body(simu.Body(1, 30, 0, 0))
-    #simulation.create_body(simu.Body(4, 50, 100, 150))
+    simulation.create_body(simu.Body(10, 40, 0, 0, 0, 0))
+    simulation.create_body(simu.Body(2, 15, 175, 0, 0, -500))
+    simulation.create_body(simu.Body(1, 5, 210, 0, 0, -400))
+    simulation.start_sim()
     display.run()
