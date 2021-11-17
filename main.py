@@ -29,10 +29,10 @@ def data_to_array(x_res, y_res, zoom):  # converts simulation data to a bitmap
 if __name__ == '__main__':
     x_vis_res = 600
     y_vis_res = 400
-    simulation = simu.Simulation(0.01, 0.5)
+    simulation = simu.Simulation(0.01, 1, 10**3)
     display = ui.UI(data_to_array, simulation, 800, 600, x_vis_res, y_vis_res)
-    simulation.create_body(simu.Body(10, 40, 0, 0, 0, 0))
-    simulation.create_body(simu.Body(2, 15, 175, 0, 0, -500))
-    simulation.create_body(simu.Body(1, 5, 210, 0, 0, -400))
+    simulation.create_body(simu.Body(1000, 40, 0, 0, 0, 0))
+    simulation.create_body(simu.Body(20, 15, 175, 0, 0, -80))
+    simulation.create_body(simu.Body(5, 5, 200, 0, 0, -45))
     simulation.start_sim()
     display.run()

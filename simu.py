@@ -42,7 +42,8 @@ class Body:
 
 
 class Simulation:
-    def __init__(self, dt=0.01, speed=1):
+    def __init__(self, dt=0.01, speed=1, kappa=1):
+        self.kappa = kappa # gravitational constant
         self.dt = dt  # update interval
         self.speed = speed  # simulation speed factor
         self.time = 0  # elapsed time
@@ -116,7 +117,8 @@ class Simulation:
         for body in self.bodies:
             for other in self.bodies:
                 if other != body:
-                    body.apply_force(self.dt * self.speed * other.get_mass() * (other.get_position() - body.get_position()))
+                    r = other.get_position() - body.get_position()
+                    body.apply_force(self.kappa * self.dt * self.speed * other.get_mass() * r / (np.linalg.norm(r) ** 3))
         for body in self.bodies:
             body.move(self.dt * self.speed * body.get_velocity())
         center_displace = self.get_main_body().get_position()
