@@ -8,10 +8,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 def fps_to_interval(fps):
     return 1000 / fps
 
+
 class UI:
     def __init__(self, data_func, simulation, x_res, y_res, x_vis_res, y_vis_res):
-        self.data_func = lambda: data_func(x_vis_res, y_vis_res)
+        self.data_func = lambda zoom: data_func(x_vis_res, y_vis_res, zoom)
         self.simulation = simulation
+        self.zoom = 1  # simulation distance to visualization distance ratio
         # main window
         self.window = Tk()
         self.window.title("N-body")
@@ -21,7 +23,6 @@ class UI:
         self.sim_frame = Frame(self.window)
         self.sim_frame.pack(side=TOP, fill=BOTH, expand=True)
         # simulation state
-        # TODO
         self.state_frame = Frame(self.sim_frame)
         self.state_frame.pack(side=LEFT, fill=Y)
         self.time = Label(self.state_frame, text="t")
@@ -38,11 +39,10 @@ class UI:
         self.vis_canvas = FigureCanvasTkAgg(self.vis_fig, self.vis_frame)
         self.vis_canvas.get_tk_widget().pack(fill=BOTH, expand=True)
         # animation
-        self.im = plt.imshow(self.data_func(), cmap=plt.get_cmap('Greys'), vmin=0, vmax=1, animated=True)
+        self.im = plt.imshow(self.data_func(self.zoom), cmap=plt.get_cmap('Greys'), vmin=0, vmax=1, animated=True)
         plt.axis("off")
         self.ani = animation.FuncAnimation(self.vis_fig, self.ani_step, interval=fps_to_interval(30), blit=False)
         # controls
-        # TODO
         self.control_frame = Frame(self.window)
         self.control_frame.pack(side=BOTTOM, fill=X)
         self.pause = Button(self.control_frame, text="play")
@@ -55,5 +55,5 @@ class UI:
         self.ani.event_source.interval = fps_to_interval(fps)
 
     def ani_step(self, t):  # sets new frame
-        self.im.set_array(self.data_func())
+        self.im.set_array(self.data_func(self.zoom))
         return self.im,

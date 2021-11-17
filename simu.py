@@ -7,6 +7,27 @@ class Body:
         self.radius = radius
         self.position = np.array([x, y])
 
+    def get_position(self):
+        return self.position
+
+    def set_position(self, x, y):
+        self.position = np.array([x, y])
+
+    def move(self, dx, dy):
+        pass
+
+    def get_mass(self):
+        pass
+
+    def set_mass(self, mass):
+        pass
+
+    def get_radius(self):
+        return self.radius
+
+    def set_radius(self, radius):
+        pass
+
 
 class Simulation:
     def __init__(self, dt=0.01):
@@ -40,17 +61,17 @@ class Simulation:
     def delete_body(self, body_index):
         self.bodies.pop(body_index)
 
-    def create_body(self, body):
+    def create_body(self, body: Body):
         self.bodies.append(body)
 
     def set_main_body(self, main_body):
-        pass # TODO
+        pass
 
     def start_sim(self):  # resumes simulation
-        pass # TODO
+        pass
 
     def stop_sim(self):  # pauses simulation
-        pass # TODO
+        pass
 
     def step(self):  # simulates one dt frame
-        pass # TODO
+        pass
