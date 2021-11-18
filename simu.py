@@ -43,7 +43,7 @@ class Body:
 
 class Simulation:
     def __init__(self, dt=0.01, speed=1, kappa=1):
-        self.kappa = kappa # gravitational constant
+        self.kappa = kappa  # gravitational constant
         self.dt = dt  # update interval
         self.speed = speed  # simulation speed factor
         self.time = 0  # elapsed time
@@ -63,11 +63,14 @@ class Simulation:
     def get_bodies(self):
         return self.bodies
 
+    def get_body_count(self):
+        return len(self.bodies)
+
     def get_main_body_index(self):
         return self.main_body_index
 
     def get_main_body(self) -> Body:
-        if self.main_body_index in range(len(self.bodies)):
+        if self.main_body_index in range(self.get_body_count()):
             return self.bodies[self.main_body_index]
 
     def is_running(self):
@@ -84,17 +87,17 @@ class Simulation:
         self.bodies.pop(body_index)
         if body_index == self.get_main_body_index():
             if not self.bodies:
-                self.set_main_body(len(self.bodies) - 1)
+                self.set_main_body(self.get_body_count() - 1)
             else:
                 self.set_main_body(None)
 
     def create_body(self, body: Body):
         self.bodies.append(body)
         if self.get_main_body_index() is None:
-            self.set_main_body(len(self.bodies) - 1)
+            self.set_main_body(self.get_body_count() - 1)
 
     def set_main_body(self, body_index):
-        if body_index in range(len(self.bodies)):
+        if body_index in range(self.get_body_count()):
             self.main_body_index = body_index
 
     def start_sim(self):  # resumes simulation
@@ -114,11 +117,13 @@ class Simulation:
             await asyncio.sleep(self.dt)
 
     def step(self):  # simulates one dt frame
+        self.time += self.dt
         for body in self.bodies:
             for other in self.bodies:
                 if other != body:
                     r = other.get_position() - body.get_position()
-                    body.apply_force(self.kappa * self.dt * self.speed * other.get_mass() * r / (np.linalg.norm(r) ** 3))
+                    body.apply_force(
+                        self.kappa * self.dt * self.speed * other.get_mass() * r / (np.linalg.norm(r) ** 3))
         for body in self.bodies:
             body.move(self.dt * self.speed * body.get_velocity())
         center_displace = self.get_main_body().get_position()
