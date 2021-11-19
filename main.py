@@ -34,9 +34,6 @@ if __name__ == '__main__':
     y_vis_res = 600
     # test data
     simulation = simu.Simulation(0.01, 1, 10**3)
-    simulation.create_body(simu.Body(1000, 40, 0, 0, 0, 0))
-    simulation.create_body(simu.Body(20, 15, 175, 0, 0, -80))
-    simulation.create_body(simu.Body(5, 5, 200, 0, 0, -46))
     # UI setup
     display = ui.UI(fps, data_to_array, simulation, x_res, y_res, x_vis_res, y_vis_res)
     display.run()
