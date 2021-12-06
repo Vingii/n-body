@@ -4,6 +4,7 @@ from tkinter.messagebox import askyesno
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib import colors
 import numpy as np
 import simu
 
@@ -15,7 +16,7 @@ def fps_to_interval(fps):
 class UI:
     def __init__(self, fps, data_func, simulation: simu.Simulation, x_res, y_res, x_vis_res, y_vis_res):
         self.fps = fps
-        self.data_func = lambda zoom: data_func(x_vis_res, y_vis_res, zoom)
+        self.data_func = lambda zoom, bodies=None: data_func(x_vis_res, y_vis_res, zoom, bodies)
         self.simulation = simulation
         # main window
         self.window = Tk()
@@ -72,16 +73,17 @@ class UI:
         self.zoom_slider.grid(row=1, column=2)
         self.main_body_label = Label(self.control_frame, text="Main body:")
         self.main_body_label.grid(row=0, column=3)
-        self.main_body_spinbox = Spinbox(self.control_frame, from_=0, to=simulation.get_body_count(),
+        self.main_body_spinbox = Spinbox(self.control_frame, from_=0, to=simulation.get_body_count() + 1,
                                          state="readonly", command=self.update_main_body, width=5)
+        self.main_body_spinbox.set(0)
         self.main_body_spinbox.grid(row=1, column=3)
         # add body
         self.masslog_var = DoubleVar(value=1)
         self.radiuslog_var = DoubleVar(value=1)
-        self.x_var = DoubleVar(value=0)
-        self.y_var = DoubleVar(value=0)
-        self.vx_var = DoubleVar(value=0)
-        self.vy_var = DoubleVar(value=0)
+        self.x_var = StringVar(value=0)
+        self.y_var = StringVar(value=0)
+        self.vx_var = StringVar(value=0)
+        self.vy_var = StringVar(value=0)
         self.create_body_button = Button(self.control_frame, text="Create body", command=self.create_body_command)
         self.create_body_button.grid(row=0, column=4, rowspan=2, sticky=(S, N))
         self.mass_label = Label(self.control_frame, text="Mass: 10")
@@ -92,7 +94,8 @@ class UI:
         self.mass_slider.config()
         self.radius_label = Label(self.control_frame, text="Radius: 10")
         self.radius_label.grid(row=0, column=6)
-        self.radius_slider = Scale(self.control_frame, from_=0, to=2, orient="horizontal", variable=self.radiuslog_var,
+        self.radius_slider = Scale(self.control_frame, from_=0, to=simulation.get_max_r_log(), orient="horizontal",
+                                   variable=self.radiuslog_var,
                                    command=lambda value: self.scale_to_label(10 ** float(value), self.radius_label,
                                                                              "Radius"))
         self.radius_slider.grid(row=1, column=6)
@@ -118,8 +121,8 @@ class UI:
         self.solar_system_button = Button(self.control_frame, text="Solar system", command=self.solar_system_command)
         self.solar_system_button.grid(row=2, column=2)
         # animation
-        self.im = plt.imshow(self.data_func(self.zoom_var.get()), cmap=plt.get_cmap('Greys'), vmin=0, vmax=1,
-                             animated=True)
+        self.im = plt.imshow(self.data_func(self.zoom_var.get()), cmap=plt.get_cmap('Greys'),
+                             norm=colors.LogNorm(vmin=0.1, vmax=1000), animated=True)
         plt.axis("off")
         self.ani = animation.FuncAnimation(self.vis_fig, self.ani_step, interval=fps_to_interval(self.fps),
                                            blit=False)
@@ -143,17 +146,17 @@ class UI:
         self.window.mainloop()
 
     def ani_step(self, t):  # sets new frame of visualization
-        self.im.set_array(self.data_func(self.zoom_var.get()))
+        self.im.set_array(self.data_func(self.zoom_var.get(), [self.body_from_input()]))
         return self.im,
 
     def scale_to_label(self, value, label, name):
         label.configure(text=f"{name}: {float(value):.2f}")
 
-    def update_data(self):
+    def update_data(self):  # coroutine
         self.time_info.configure(text=f"{self.simulation.get_time():.2f}")
         self.running_info.configure(text=str(self.simulation.is_running()))
         self.bodies_info.configure(text=str(self.simulation.get_body_count()))
-        self.main_body_spinbox.configure(to=max(self.simulation.get_body_count() - 1, 0))
+        self.main_body_spinbox.configure(to=self.simulation.get_body_count())
         # repeat
         self.window.after(int(fps_to_interval(self.fps)), self.update_data)
 
@@ -161,7 +164,7 @@ class UI:
         self.simulation.set_speed(self.speed_var.get())
 
     def update_main_body(self, *args):
-        self.simulation.set_main_body(int(self.main_body_spinbox.get()))
+        self.simulation.set_main_body(int(self.main_body_spinbox.get()) - 1)
 
     def pause_command(self):
         if self.simulation.is_running():
@@ -169,10 +172,19 @@ class UI:
         else:
             self.simulation.start_sim()
 
+    def str_to_float(self, s):
+        if not s:
+            return 0
+        else:
+            return float(s)
+
+    def body_from_input(self):
+        return simu.Body(10 ** self.masslog_var.get(), 10 ** self.radiuslog_var.get(),
+                         self.str_to_float(self.x_var.get()), self.str_to_float(self.y_var.get()),
+                         self.str_to_float(self.vx_var.get()), self.str_to_float(self.vy_var.get()))
+
     def create_body_command(self):
-        self.simulation.create_body(
-            simu.Body(10 ** self.masslog_var.get(), 10 ** self.radiuslog_var.get(), self.x_var.get(), self.y_var.get(),
-                      self.vx_var.get(), self.vy_var.get()))
+        self.simulation.create_body(self.body_from_input())
 
     def preset_decorator(fnc):
         def inner(self):

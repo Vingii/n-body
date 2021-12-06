@@ -5,20 +5,20 @@ import threading
 
 class Body:
 
-    def __init__(self, mass, radius, x, y, vx, vy, name=None):
+    def __init__(self, mass, radius, x, y, vx, vy):
         self._mass = mass
         self._radius = radius
         self._position = np.array([x, y])
         self._velocity = np.array([vx, vy])
 
     def get_position(self):
-        return self._position
+        return np.copy(self._position)
 
     def set_position(self, position):
         self._position = position
 
     def get_velocity(self):
-        return self._velocity
+        return np.copy(self._velocity)
 
     def set_velocity(self, velocity):
         self._velocity = velocity
@@ -43,9 +43,10 @@ class Body:
 
 
 class Simulation:
-    def __init__(self, dt=0.01, speed=1, kappa=1):
+    def __init__(self, dt=0.01, speed=1, kappa=1, max_r_log=2):
         self._kappa = kappa  # gravitational constant
         self._dt = dt  # update interval
+        self._max_r_log = max_r_log  # maximal body radius log 10
         self._speed = speed  # simulation speed factor
         self._time = 0  # elapsed time
         self._bodies = []  # list of bodies in simulation
@@ -60,6 +61,12 @@ class Simulation:
 
     def get_dt(self):
         return self._dt
+
+    def get_max_r_log(self):
+        return self._max_r_log
+
+    def get_max_r(self):
+        return 10 ** self._max_r_log
 
     def get_speed(self):
         return self._speed
@@ -76,7 +83,7 @@ class Simulation:
     def get_main_body_index(self):
         return self._main_body_index
 
-    def get_main_body(self) -> Body:
+    def get_main_body(self):
         if self._main_body_index in range(self.get_body_count()):
             return self._bodies[self._main_body_index]
         else:
@@ -98,12 +105,13 @@ class Simulation:
         self._time = 0
 
     def delete_body(self, body_index):
-        self._bodies.pop(body_index)
-        if body_index == self.get_main_body_index():
-            if not self._bodies:
-                self.set_main_body(self.get_body_count() - 1)
-            else:
-                self.set_main_body(None)
+        if body_index in range(self.get_body_count()):
+            self._bodies.pop(body_index)
+            if self.get_main_body_index() is not None:
+                if body_index < self.get_main_body_index():
+                    self.set_main_body(self.get_main_body_index() - 1)
+                elif body_index == self.get_main_body_index():
+                    self.set_main_body(None)
 
     def clear_bodies(self):
         self._bodies = []
@@ -111,13 +119,13 @@ class Simulation:
 
     def create_body(self, body: Body):
         self._bodies.append(body)
-        if not self.get_main_body():
-            self.set_main_body(self.get_body_count() - 1)
 
     def set_main_body(self, body_index):
         if body_index in range(self.get_body_count()):
             self._main_body_index = body_index
-            self.center_main_body()
+        else:
+            self._main_body_index = None
+        self.center_main_body()
 
     def start_sim(self):  # resumes simulation
         if not self.is_running():
@@ -137,18 +145,53 @@ class Simulation:
 
     def step(self):  # simulates one dt frame
         self._time += self._dt * self._speed
+        # collisions
+        col_done = False
+        while not col_done:
+            col_done = True
+            for body_index, body in enumerate(self._bodies):
+                for other_index, other in enumerate(self._bodies):
+                    if body_index != other_index:
+                        dif_vector = other.get_position() - body.get_position()
+                        rsq = sum(dif_vector * dif_vector)
+                        if rsq < (body.get_radius() + other.get_radius()) ** 2:
+                            self.collide(body_index, other_index)
+                            col_done = False
+                            break
+                if not col_done:
+                    break
+        # apply forces
         for body in self._bodies:
             for other in self._bodies:
                 if other != body:
                     r = other.get_position() - body.get_position()
-                    body.apply_force(
-                        self._kappa * self._dt * self._speed * other.get_mass() * r / (np.linalg.norm(r) ** 3))
+                    if (r != [0, 0]).all():
+                        body.apply_force(
+                            self._kappa * self._dt * self._speed * other.get_mass() * r / (np.linalg.norm(r) ** 3))
+        # move bodies
         for body in self._bodies:
             body.move(self._dt * self._speed * body.get_velocity())
         self.center_main_body()
 
+    def collide(self, body1_index, body2_index):
+        body1 = self._bodies[body1_index]
+        body2 = self._bodies[body2_index]
+        mass = body1.get_mass() + body2.get_mass()
+        radius = min(self.get_max_r(), np.sqrt(body1.get_radius() ** 2 + body2.get_radius() ** 2))
+        (x, y) = \
+            (body1.get_mass() * body1.get_position() + body2.get_mass() * body2.get_position()) / mass
+        (vx, vy) = \
+            (body1.get_mass() * body1.get_velocity() + body2.get_mass() * body2.get_velocity()) / mass
+        self.delete_body(max(body1_index, body2_index))  # higher index first
+        self.delete_body(min(body1_index, body2_index))
+        self.create_body(Body(mass, radius, x, y, vx, vy))
+
     def center_main_body(self):
-        if self.get_main_body():
-            center_displace = self.get_main_body().get_position()
+        if self.get_body_count():
+            if self.get_main_body():
+                center_displace = self.get_main_body().get_position()
+            else:
+                center_displace = sum((body.get_mass() * body.get_position() for body in self._bodies)) / \
+                                  sum(body.get_mass() for body in self._bodies)
             for body in self._bodies:
                 body.move(-center_displace)
