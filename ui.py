@@ -15,8 +15,8 @@ def fps_to_interval(fps):
 class UI:
     def __init__(self, fps, data_func, simulation: simu.Simulation, x_res, y_res, x_vis_res, y_vis_res):
         self.fps = fps
-        self.data_func = lambda zoom, bodies=None: data_func(x_vis_res, y_vis_res, zoom, bodies)
         self.simulation = simulation
+        self.data_func = data_func
         # main window
         self.window = Tk()
         self.window.title("N-body")
@@ -42,7 +42,7 @@ class UI:
         self.bodies_info.grid(row=2, column=1, sticky=(W, E))
         # pygame
         pygame.init()
-        self.pg_display = pygame.display.set_mode((x_vis_res, y_vis_res))
+        self.pg_display = pygame.display.set_mode((x_vis_res, y_vis_res), pygame.RESIZABLE)
         # control variables
         self.zoom_var = DoubleVar(value=1)  # simulation distance to visualization distance ratio
         self.speed_var = DoubleVar(value=self.simulation.get_speed())
@@ -131,8 +131,10 @@ class UI:
         self.window.mainloop()
 
     def ani_step(self):  # sets new frame of visualization
-        ar = self.data_func(self.zoom_var.get(), [self.body_from_input()])
-        ar = np.where(ar == 0, ar, np.maximum(ar / ar.max() * 255, 100))
+        x, y = pygame.display.get_surface().get_size()
+        ar = self.data_func(x, y, self.zoom_var.get(), [self.body_from_input()])
+        if ar.max() > 0:
+            ar = np.where(ar == 0, ar, np.maximum(ar / ar.max() * 255, 100))
         size = ar.shape[1::-1]
         surf = pygame.surfarray.make_surface(np.repeat(ar.reshape(size[1], size[0], 1), 3, axis=2))
         self.pg_display.blit(surf, (0, 0))

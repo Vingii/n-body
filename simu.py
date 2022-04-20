@@ -43,7 +43,7 @@ class Body:
 
 
 class Simulation:
-    def __init__(self, dt=0.01, speed=1, kappa=1, max_r_log=2):
+    def __init__(self, dt=0.01, speed=1, kappa=1, max_r_log=3):
         self._kappa = kappa  # gravitational constant
         self._dt = dt  # update interval
         self._max_r_log = max_r_log  # maximal body radius log 10

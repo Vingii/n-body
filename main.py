@@ -5,9 +5,6 @@ from math import ceil
 
 
 def data_to_array(x_res, y_res, zoom, bodies=None, width=2):  # converts simulation data to a bitmap
-    def in_bounds(x, y):
-        nonlocal x_res, y_res
-        return 0 <= x < x_res and 0 <= y < y_res
 
     def render_body(body: simu.Body, transparent=0):
         nonlocal data
@@ -15,17 +12,27 @@ def data_to_array(x_res, y_res, zoom, bodies=None, width=2):  # converts simulat
         (x_center, y_center) = (round(x_res / 2 + x_pos / zoom), round(y_res / 2 + y_pos / zoom))  # central pixel
         r = ceil(body.get_radius() / zoom)  # body radius in pixels
         rsq = r * r
-        if not transparent:
-            for i in np.arange(max(-r, -x_center), min(r+1, x_res - x_center)):
-                for j in np.arange(max(-r, -y_center), min(r+1, y_res - y_center)):
-                    if i * i + j * j <= rsq:
-                        data[y_center + j, x_center + i] = body.get_mass()
-        else:
-            d = width * r
-            for i in np.arange(max(-r, -x_center), min(r+1, x_res - x_center)):
-                for j in np.arange(max(-r, -y_center), min(r+1, y_res - y_center)):
-                    if abs(i * i + j * j - rsq) <= d:
-                        data[y_center + j, x_center + i] = body.get_mass()
+        if min(data.shape[1], y_center + r + 1) - max(y_center - r, 0) > 0 and min(data.shape[0],  # is in view
+                                                                                   x_center + r + 1) - max(x_center - r,
+                                                                                                           0) > 0:
+            ytab, xtab = np.meshgrid(
+                np.arange(min(data.shape[1], y_center + r + 1) - max(y_center - r, 0)),
+                np.arange(min(data.shape[0], x_center + r + 1) - max(x_center - r, 0)))
+            xtab = xtab - min(r, x_center)
+            ytab = ytab - min(r, y_center)
+            if not transparent:
+                data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
+                max(y_center - r, 0):min(data.shape[1], y_center + r + 1)] = \
+                    np.where(abs(xtab * xtab + ytab * ytab) > rsq,
+                             data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
+                             max(y_center - r, 0):min(data.shape[1], y_center + r + 1)], body.get_mass())
+            else:
+                d = width * r
+                data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
+                max(y_center - r, 0):min(data.shape[1], y_center + r + 1)] = \
+                    np.where(abs(xtab * xtab + ytab * ytab - rsq) > d,
+                             data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
+                             max(y_center - r, 0):min(data.shape[1], y_center + r + 1)], body.get_mass())
 
     if bodies is None:
         bodies = []
