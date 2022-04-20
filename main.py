@@ -18,11 +18,12 @@ def data_to_array(x_res, y_res, zoom, bodies=None, width=2):  # converts simulat
             ytab, xtab = np.meshgrid(
                 np.arange(min(data.shape[1], y_center + r + 1) - max(y_center - r, 0)),
                 np.arange(min(data.shape[0], x_center + r + 1) - max(x_center - r, 0)))
+
             xtab = xtab - min(r, x_center)
             ytab = ytab - min(r, y_center)
             if not transparent:
-                data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
-                max(y_center - r, 0):min(data.shape[1], y_center + r + 1)] = \
+                data[max(x_center - r, 0):min(data.shape[1], x_center + r + 1),
+                max(y_center - r, 0):min(data.shape[0], y_center + r + 1)] = \
                     np.where(abs(xtab * xtab + ytab * ytab) > rsq,
                              data[max(x_center - r, 0):min(data.shape[0], x_center + r + 1),
                              max(y_center - r, 0):min(data.shape[1], y_center + r + 1)], body.get_mass())

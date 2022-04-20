@@ -4,8 +4,7 @@ from tkinter.messagebox import askyesno
 import numpy as np
 import pygame
 import simu
-import os
-import platform
+import json
 
 
 def fps_to_interval(fps):
@@ -17,11 +16,12 @@ class UI:
         self.fps = fps
         self.simulation = simulation
         self.data_func = data_func
+        self.preset_count = 0
         # main window
         self.window = Tk()
         self.window.title("N-body")
         self.window.geometry(f"{x_res}x{y_res}")
-        self.window.resizable(0, 0)
+        self.window.resizable(False, False)
         # float validation
         vcmd = (self.window.register(self.validate),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
@@ -29,20 +29,20 @@ class UI:
         self.state_frame = Frame(self.window)
         self.state_frame.pack(side=TOP, fill=BOTH)
         self.time_label = Label(self.state_frame, text="Time:", anchor="w")
-        self.time_label.grid(row=0, column=0, sticky=(W, E))
+        self.time_label.grid(row=0, column=0, sticky='WE')
         self.time_info = Label(self.state_frame, text=self.simulation.get_time(), anchor="w")
-        self.time_info.grid(row=0, column=1, sticky=(W, E))
+        self.time_info.grid(row=0, column=1, sticky='WE')
         self.running_label = Label(self.state_frame, text="Running:", anchor="w")
-        self.running_label.grid(row=1, column=0, sticky=(W, E))
+        self.running_label.grid(row=1, column=0, sticky='WE')
         self.running_info = Label(self.state_frame, text=self.simulation.is_running(), anchor="w")
-        self.running_info.grid(row=1, column=1, sticky=(W, E))
+        self.running_info.grid(row=1, column=1, sticky='WE')
         self.bodies_label = Label(self.state_frame, text="Body count:", anchor="w")
-        self.bodies_label.grid(row=2, column=0, sticky=(W, E))
+        self.bodies_label.grid(row=2, column=0, sticky='WE')
         self.bodies_info = Label(self.state_frame, text=self.simulation.get_body_count(), anchor="w")
-        self.bodies_info.grid(row=2, column=1, sticky=(W, E))
+        self.bodies_info.grid(row=2, column=1, sticky='WE')
         # pygame
         pygame.init()
-        self.pg_display = pygame.display.set_mode((x_vis_res, y_vis_res), pygame.RESIZABLE)
+        self.pg_display = pygame.display.set_mode((x_vis_res, y_vis_res))
         # control variables
         self.zoom_var = DoubleVar(value=1)  # simulation distance to visualization distance ratio
         self.speed_var = DoubleVar(value=self.simulation.get_speed())
@@ -51,7 +51,7 @@ class UI:
         self.control_frame = Frame(self.window)
         self.control_frame.pack(side=BOTTOM, fill=X)
         self.pause_button = Button(self.control_frame, text="Play/Pause", command=self.pause_command)
-        self.pause_button.grid(row=0, column=0, rowspan=2, sticky=(S, N))
+        self.pause_button.grid(row=0, column=0, rowspan=2, sticky='SN')
         self.speed_label = Label(self.control_frame, text="Speed: 1")
         self.speed_label.grid(row=0, column=1)
         self.speed_slider = Scale(self.control_frame, from_=0, to=10, orient="horizontal", variable=self.speed_var,
@@ -59,7 +59,7 @@ class UI:
         self.speed_slider.grid(row=1, column=1)
         self.zoom_label = Label(self.control_frame, text="Zoom: 1")
         self.zoom_label.grid(row=0, column=2)
-        self.zoom_slider = Scale(self.control_frame, from_=1, to=10, orient="horizontal", variable=self.zoom_var,
+        self.zoom_slider = Scale(self.control_frame, from_=1, to=100, orient="horizontal", variable=self.zoom_var,
                                  command=lambda value: self.scale_to_label(value, self.zoom_label, "Zoom"))
         self.zoom_slider.grid(row=1, column=2)
         self.main_body_label = Label(self.control_frame, text="Main body:")
@@ -71,12 +71,12 @@ class UI:
         # add body
         self.masslog_var = DoubleVar(value=1)
         self.radiuslog_var = DoubleVar(value=1)
-        self.x_var = StringVar(value=0)
-        self.y_var = StringVar(value=0)
-        self.vx_var = StringVar(value=0)
-        self.vy_var = StringVar(value=0)
+        self.x_var = StringVar(value="0")
+        self.y_var = StringVar(value="0")
+        self.vx_var = StringVar(value="0")
+        self.vy_var = StringVar(value="0")
         self.create_body_button = Button(self.control_frame, text="Create body", command=self.create_body_command)
-        self.create_body_button.grid(row=0, column=4, rowspan=2, sticky=(S, N))
+        self.create_body_button.grid(row=0, column=4, rowspan=2, sticky='SN')
         self.mass_label = Label(self.control_frame, text="Mass: 10")
         self.mass_label.grid(row=0, column=5)
         self.mass_slider = Scale(self.control_frame, from_=0, to=3, orient="horizontal", variable=self.masslog_var,
@@ -107,10 +107,7 @@ class UI:
         # presets
         self.presets_label = Label(self.control_frame, text="Presets:")
         self.presets_label.grid(row=2, column=0)
-        self.clear_preset_button = Button(self.control_frame, text="Clear", command=self.clear_preset_command)
-        self.clear_preset_button.grid(row=2, column=1)
-        self.solar_system_button = Button(self.control_frame, text="Solar system", command=self.solar_system_command)
-        self.solar_system_button.grid(row=2, column=2)
+        self.load_presets()
 
     def validate(self, action, index, value_if_allowed,
                  prior_value, text, validation_type, trigger_type, widget_name):  # float format validation
@@ -177,21 +174,20 @@ class UI:
     def create_body_command(self):
         self.simulation.create_body(self.body_from_input())
 
-    def preset_decorator(fnc):
-        def inner(self):
-            if askyesno(title="Confirmation", message="This will delete your simulation."):
-                self.simulation.stop_sim()
-                self.simulation.clear_bodies()
-                fnc(self)
+    def load_presets(self):
+        self.preset_count = 0
+        f = open('presets.json')
+        data = json.load(f)
+        for preset in data:
+            self.preset_count += 1
+            Button(self.control_frame, text=preset['name'], command=lambda pre=preset: self.load(pre)).grid(row=2,
+                                                                                                    column=self.preset_count)
+        f.close()
 
-        return inner
-
-    @preset_decorator
-    def clear_preset_command(self):
-        pass
-
-    @preset_decorator
-    def solar_system_command(self):
-        self.simulation.create_body(simu.Body(1000, 40, 0, 0, 0, 0))
-        self.simulation.create_body(simu.Body(20, 15, 175, 0, 0, -80))
-        self.simulation.create_body(simu.Body(5, 5, 200, 0, 0, -46))
+    def load(self, preset):  # loads a preset
+        if askyesno(title="Confirmation", message="This will delete your simulation."):
+            self.simulation.stop_sim()
+            self.simulation.clear_bodies()
+            for body in preset['bodies']:
+                self.simulation.create_body(
+                    simu.Body(body['mass'], body['radius'], body['x'], body['y'], body['vx'], body['vy']))
