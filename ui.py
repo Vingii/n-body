@@ -1,12 +1,11 @@
 from tkinter import *
 from tkinter.ttk import *
 from tkinter.messagebox import askyesno
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib import colors
 import numpy as np
+import pygame
 import simu
+import os
+import platform
 
 
 def fps_to_interval(fps):
@@ -26,12 +25,9 @@ class UI:
         # float validation
         vcmd = (self.window.register(self.validate),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
-        # simulation frame
-        self.sim_frame = Frame(self.window, height=y_vis_res)
-        self.sim_frame.pack(side=TOP, fill=BOTH)
         # simulation state
-        self.state_frame = Frame(self.sim_frame)
-        self.state_frame.pack(side=LEFT, fill=Y)
+        self.state_frame = Frame(self.window)
+        self.state_frame.pack(side=TOP, fill=BOTH)
         self.time_label = Label(self.state_frame, text="Time:", anchor="w")
         self.time_label.grid(row=0, column=0, sticky=(W, E))
         self.time_info = Label(self.state_frame, text=self.simulation.get_time(), anchor="w")
@@ -44,14 +40,9 @@ class UI:
         self.bodies_label.grid(row=2, column=0, sticky=(W, E))
         self.bodies_info = Label(self.state_frame, text=self.simulation.get_body_count(), anchor="w")
         self.bodies_info.grid(row=2, column=1, sticky=(W, E))
-        # simulation visualization
-        self.vis_fig = plt.figure()
-        self.vis_fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.vis_frame = Frame(self.sim_frame, width=x_vis_res, height=y_vis_res)
-        self.vis_frame.pack(side=RIGHT, fill=BOTH)
-        self.vis_frame.pack_propagate(False)
-        self.vis_canvas = FigureCanvasTkAgg(self.vis_fig, self.vis_frame)
-        self.vis_canvas.get_tk_widget().pack(side=RIGHT, fill=BOTH, expand=True)
+        # pygame
+        pygame.init()
+        self.pg_display = pygame.display.set_mode((x_vis_res, y_vis_res))
         # control variables
         self.zoom_var = DoubleVar(value=1)  # simulation distance to visualization distance ratio
         self.speed_var = DoubleVar(value=self.simulation.get_speed())
@@ -120,15 +111,9 @@ class UI:
         self.clear_preset_button.grid(row=2, column=1)
         self.solar_system_button = Button(self.control_frame, text="Solar system", command=self.solar_system_command)
         self.solar_system_button.grid(row=2, column=2)
-        # animation
-        self.im = plt.imshow(self.data_func(self.zoom_var.get()), cmap=plt.get_cmap('Greys'),
-                             norm=colors.LogNorm(vmin=0.1, vmax=1000), animated=True)
-        plt.axis("off")
-        self.ani = animation.FuncAnimation(self.vis_fig, self.ani_step, interval=fps_to_interval(self.fps),
-                                           blit=False)
 
     def validate(self, action, index, value_if_allowed,
-                 prior_value, text, validation_type, trigger_type, widget_name):  # float validation
+                 prior_value, text, validation_type, trigger_type, widget_name):  # float format validation
         if (action == '1'):
             if text in '0123456789.-+':
                 try:
@@ -145,9 +130,13 @@ class UI:
         self.update_data()
         self.window.mainloop()
 
-    def ani_step(self, t):  # sets new frame of visualization
-        self.im.set_array(self.data_func(self.zoom_var.get(), [self.body_from_input()]))
-        return self.im,
+    def ani_step(self):  # sets new frame of visualization
+        ar = self.data_func(self.zoom_var.get(), [self.body_from_input()])
+        ar = np.where(ar == 0, ar, np.maximum(ar / ar.max() * 255, 100))
+        size = ar.shape[1::-1]
+        surf = pygame.surfarray.make_surface(np.repeat(ar.reshape(size[1], size[0], 1), 3, axis=2))
+        self.pg_display.blit(surf, (0, 0))
+        pygame.display.flip()
 
     def scale_to_label(self, value, label, name):
         label.configure(text=f"{name}: {float(value):.2f}")
@@ -157,8 +146,8 @@ class UI:
         self.running_info.configure(text=str(self.simulation.is_running()))
         self.bodies_info.configure(text=str(self.simulation.get_body_count()))
         self.main_body_spinbox.configure(to=self.simulation.get_body_count())
-        # repeat
-        self.window.after(int(fps_to_interval(self.fps)), self.update_data)
+        self.ani_step()
+        self.window.after(int(fps_to_interval(self.fps)), self.update_data)  # repeat
 
     def update_speed(self, *args):
         self.simulation.set_speed(self.speed_var.get())

@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # UI parameters
     fps = 60
     x_res = 800
-    y_res = 700
+    y_res = 150
     x_vis_res = 600
     y_vis_res = 600
     # simulation parameters
