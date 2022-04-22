@@ -4,3 +4,6 @@
  
  2D n-body simulation with raster based visualisation in python.
  GUI made using tkinter and pygame.
+
+![Simulation](example/simu.gif)
+![Controls](example/control.png)
